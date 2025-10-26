@@ -19,7 +19,6 @@ local RunService = game:GetService("RunService");
 type ProjectileClass = {
 	Projectile: BasePart | Model,
 	_Connections: {RBXScriptConnection},
-	_creationTime: number?,
 	_lifetime: number?,
 	hasClass: boolean,
 
