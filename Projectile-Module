@@ -1,0 +1,178 @@
+
+--!strict
+
+--[[	PROJECTILES MODULE, LAST EDIT 10/26/25, @8bq2		]]--
+   		---------------------------------------------
+--[[	
+			  		PROJECTILE NEEDS TO BE:
+			  	 	 - A PART OR MODEL
+			 	 	 - INSIDE MODULE
+			 	 	 - UNANCHORED
+															]]--
+
+----------------------------------------------------------------
+--					  	   Variables					   	  --
+----------------------------------------------------------------
+
+local RunService = game:GetService("RunService");
+
+type ProjectileClass = {
+	Projectile: BasePart | Model,
+	_Connections: {RBXScriptConnection},
+	_creationTime: number?,
+	_lifetime: number?,
+	hasClass: boolean,
+
+	new: (ProjectileName: string) -> ProjectileClass?,
+	Launch: (self: ProjectileClass, Data: TableInfo) -> boolean,
+	Destroy: (self: ProjectileClass) -> (),
+	
+	CachedAssets: {}
+}
+
+export type TableInfo = {
+	ProjectileName: string,
+	StartPos: Vector3,
+	EndPos: Vector3,
+	Speed: number,
+	Callback: ((BasePart) -> ())?
+}
+
+local Projectiles = {}
+Projectiles.__index = Projectiles
+
+Projectiles.CachedAssets = {} :: { [string]: BasePart }
+
+---------------------------------------------------------
+--					   Functions					   --
+---------------------------------------------------------
+
+local function getRandomHash(Characters: number) : string
+	local symbols = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	local baseString = ""
+	
+	for Index = 1, Characters do
+		local randomIndex = Random.new():NextInteger(1, #symbols)
+		
+		baseString = baseString .. symbols:sub(randomIndex, randomIndex)
+	end
+	
+	return baseString
+end
+
+for _, Asset: Instance in pairs(script:GetChildren()) do
+	if (Asset:IsA("BasePart")) then
+		Projectiles.CachedAssets[Asset.Name] = Asset
+	end
+end
+
+---------------------------------------------------------
+--				   Modular Functions				   --
+---------------------------------------------------------
+
+function Projectiles.new(ProjectileName: string) : ()
+	if (typeof(ProjectileName) ~= "string") then
+		warn(`[{script.Name}]: Type of Parameter 'ProjectileName' requires a string, got: {typeof(ProjectileName)}.`)
+		return nil
+	end
+	
+	local cachedAsset = Projectiles.CachedAssets[ProjectileName]
+	if (not cachedAsset) then
+		warn(`[{script.Name}]: Could not find projectile '{ProjectileName}' in cache.`)
+		return nil
+	end
+	
+	local self = setmetatable({}, Projectiles);
+	self._Connections = {} :: {RBXScriptConnection}
+	self.hasClass = true
+	
+	self.Projectile = cachedAsset:Clone() :: BasePart
+
+	self._lifetime = 10 :: number
+	
+	if (typeof(self.Projectile) == "BasePart") then
+		self.Projectile.Name = ProjectileName .. "_" .. getRandomHash(8)
+	end
+	
+	return self
+end
+
+function Projectiles:Launch(Data: TableInfo) : boolean
+	if (not self) or (not self.Projectile) then
+		warn(`[{script.Name}]: Could not find Projectile: {self.Projectile}.`);
+		return false
+	end
+	
+	local RequiredParams = {"StartPos", "EndPos", "Speed"}
+	
+	for _, Field in ipairs(RequiredParams) do
+		if (Data[Field] == nil) then
+			warn(`[{script.Name}]: Missing required field '{Field}' in Launch data`)
+			return false
+		end 
+	end
+	
+	if (self.Projectile:IsA("BasePart")) and (not self.Projectile.Anchored) then
+		self.Projectile.Parent = workspace.Visuals
+	else
+		warn(`[{script.Name}]: Projectile is not a BasePart or Projectile is anchored.`);
+		return false
+	end
+	
+	local Direction = (Data.EndPos - Data.StartPos).Unit
+	local ProjectileVelocity = Direction * Data.Speed
+	
+	local BodyVelocity = Instance.new("BodyVelocity");
+	BodyVelocity.Name = "ProjVel_" .. getRandomHash(Random.new():NextInteger(7, 10))
+	BodyVelocity.MaxForce = Vector3.new(10e10, 10e10, 10e10);
+	BodyVelocity.Velocity = ProjectileVelocity
+	
+	if (typeof(self.Projectile) == "Instance") and (self.Projectile:IsA("BasePart")) then
+		self.Projectile:SetNetworkOwner(nil);
+		self.Projectile.Position = Data.StartPos
+		BodyVelocity.Parent = self.Projectile
+	end
+
+	task.delay(self._lifetime or 10, function()
+		if (self.Projectile) then
+			self.Projectile:Destroy()
+			self:Destroy()
+		end
+	end)
+	
+	if (Data.Callback) and (typeof(Data.Callback) == "function") then
+		if (self.Projectile) then
+			if (typeof(self.Projectile) == "Instance") and (self.Projectile:IsA("BasePart")) then
+				Data.Callback(self.Projectile);
+			end
+		end
+	end
+	
+	return true
+end
+
+function Projectiles:Destroy()
+	if (self) and (self.hasClass) then		
+		if (self.Projectile) and (self.Projectile.Parent) then
+			self.Projectile:Destroy()
+		end
+		
+		self.hasClass = false
+		
+		for _, Connection in pairs(self._Connections) do
+			if (Connection) then
+				if (typeof(Connection) == "RBXScriptConnection") then
+					Connection:Disconnect();
+				end
+			end
+		end
+		
+		for key in pairs(self) do
+			self[key] = nil
+		end
+
+		setmetatable(self, nil)
+	end
+end
+
+return Projectiles
