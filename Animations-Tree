@@ -1,0 +1,105 @@
+
+--!strict
+
+--------------------------------
+--	Variables
+--------------------------------
+
+type PlayInfo = {
+	fadeTime: number?,
+	weight: number?,
+	speed: number?
+}
+
+local Players = game:GetService("Players");
+
+local cachedAnims = {} :: {[string]: AnimationTrack};
+
+local AnimsTree = {};
+AnimsTree.__index = AnimsTree
+
+--------------------------------
+--	Modular Functions
+--------------------------------
+
+function AnimsTree.new(Humanoid: Humanoid) : ()
+	if (not Humanoid) or (not Humanoid:IsA("Humanoid")) or (not Humanoid.Parent) then
+		warn(`[{script.Name}]: Humanoid paramter was invalid.`)
+		return false
+	end
+	
+	local self = setmetatable({}, AnimsTree)
+
+	self.Humanoid = Humanoid
+	self.Character = self.Humanoid.Parent :: Model
+	self.Plr = Players:GetPlayerFromCharacter(self.Character);
+	self.Animator = self.Humanoid:FindFirstChildOfClass("Animator");
+		
+	self.Plr.CharacterRemoving:Once(function()
+		self:Destroy();
+	end)
+	
+	return self
+end
+
+function AnimsTree:LoadAnimation(AnimationId: string, RegisterName: string) : ()
+	if (self) and (self.Animator) then
+		if (cachedAnims[RegisterName]) then return false end
+		
+		local Animation = Instance.new("Animation");
+		Animation.AnimationId = AnimationId
+		cachedAnims[RegisterName] = self.Animator:LoadAnimation(Animation);
+		cachedAnims[RegisterName]:Play();
+		cachedAnims[RegisterName]:Stop();
+		
+		game:GetService("ContentProvider"):PreloadAsync({Animation})
+	else
+		return false
+	end
+	
+	return true
+end
+
+function AnimsTree:Play(AnimationName: string, PlayInfo) : ()
+	if (self.Animator) then
+		if (cachedAnims[AnimationName]) then
+			cachedAnims[AnimationName]:Play(PlayInfo.fadeTime or 0.100000001, PlayInfo.weight or 1, PlayInfo.speed or 1);
+		else
+			warn(`[{script.Name}]: Could not find cached animation {AnimationName}.`)
+			return false
+		end
+	else
+		self:Destroy();
+		return false
+	end
+	
+	return true
+end
+
+function AnimsTree:Stop(AnimationName: string) : ()
+	if (self.Animator) then
+		if (cachedAnims[AnimationName]) then
+			cachedAnims[AnimationName]:Stop();
+		else
+			return false
+		end
+	else
+		self:Destroy();
+		return false
+	end
+	
+	return true
+end
+
+function AnimsTree:Destroy()
+	table.clear(cachedAnims);
+	
+	for key in pairs(self) do
+		self[key] = nil
+	end
+	
+	print(`Cleaned animations tree.`)
+	return true
+end 
+
+return AnimsTree
