@@ -1,0 +1,101 @@
+
+--!strict
+
+-----------------------------------
+--	Variables
+-----------------------------------
+
+type SignalTable = {
+	FiringType: "All" | "Server",
+	Identifier: string,
+	Infos: {[any?]: any?}
+};
+
+type soundTable = {
+	FiringType: "All" | "Server",
+	Infos: {[any?]: any?}
+}
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage");
+local RunService = game:GetService("RunService");
+
+local Modules = ReplicatedStorage.Modules
+local Network = Modules.Network
+
+local Warp = require(Network.Warp);
+
+local Replicator = {};
+
+-----------------------------------
+--	Functions
+-----------------------------------
+
+local function SendSignal(Data: SignalTable, ...) : boolean
+	local Identifier = Data.Identifier
+	if (not Identifier) or (typeof(Identifier) ~= "string") then
+		warn(`[{script.Name}]: Identifier not correctly given, got: {Identifier}, {typeof(Identifier)}`);
+		return false
+	end
+	
+	local FiringType = Data.FiringType
+
+	if (not FiringType) or (typeof(Data.FiringType) ~= "string") then
+		warn(`[{script.Name}]: FiringType not properly given, got: {FiringType}, {typeof(FiringType)}`);
+		return false
+	end
+	
+	if (Data.FiringType == "Server") then		
+		if (RunService:IsServer()) then
+			warn(`[{script.Name}]: Cannot replicate to "{Data.FiringType}" from server-side.`);
+			return false
+		end
+		
+		Warp.Client(Identifier):Fire(true, Data.Infos)
+	elseif (Data.FiringType == "All") then
+		if (RunService:IsClient()) then
+			warn(`[{script.Name}]: Cannot replicate to "{Data.FiringType}" from client-side.`);
+			return false
+		end
+		
+		Warp.Server(Identifier):Fires(true, Data.Infos)
+	end
+	
+	return true
+end
+
+local function replicateSound(Data: soundTable, ...) : boolean
+	local FiringType = Data.FiringType
+
+	if (not FiringType) or (typeof(Data.FiringType) ~= "string") then
+		warn(`[{script.Name}]: FiringType not properly given, got: {FiringType}, {typeof(FiringType)}`);
+		return false
+	end
+
+	if (Data.FiringType == "Server") then		
+		if (RunService:IsServer()) then
+			warn(`[{script.Name}]: Cannot replicate to "{Data.FiringType}" from server-side.`);
+			return false
+		end
+
+		Warp.Client("/$ound/"):Fire(true, Data.Infos)
+	elseif (Data.FiringType == "All") then
+		if (RunService:IsClient()) then
+			warn(`[{script.Name}]: Cannot replicate to "{Data.FiringType}" from client-side.`);
+			return false
+		end
+
+		Warp.Server("/$ound/"):Fires(true, Data.Infos)
+	end
+	
+	return true
+end
+
+-----------------------------------
+--	Modular Functions
+-----------------------------------
+
+function Replicator.SendSignal(Data: SignalTable)
+	SendSignal(Data);
+end
+
+return Replicator
