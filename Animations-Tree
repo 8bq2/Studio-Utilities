@@ -27,52 +27,58 @@ function AnimsTree.new(Humanoid: Humanoid) : ()
 		warn(`[{script.Name}]: Humanoid paramter was invalid.`)
 		return false
 	end
-	
+
 	local self = setmetatable({}, AnimsTree)
+	
+	self.Init = true
+	self.Connections = {} :: { RBXScriptConnection };
 
 	self.Humanoid = Humanoid
 	self.Character = self.Humanoid.Parent :: Model
 	self.Plr = Players:GetPlayerFromCharacter(self.Character);
 	self.Animator = self.Humanoid:FindFirstChildOfClass("Animator");
-		
-	self.Plr.CharacterRemoving:Once(function()
+
+	table.insert(self.Connections, self.Plr.CharacterRemoving:Once(function()
 		self:Destroy();
-	end)
-	
+	end));
+
 	return self
 end
 
 function AnimsTree:LoadAnimation(AnimationId: string, RegisterName: string) : ()
 	if (self) and (self.Animator) then
-		if (cachedAnims[RegisterName]) then return false end
-		
+		if (cachedAnims[RegisterName]) then 
+			warn(`[{script.Name}]: A duplicate containing the animation name has been found. Name: {RegisterName}.`)
+			return false 
+		end
+
 		local Animation = Instance.new("Animation");
 		Animation.AnimationId = AnimationId
 		cachedAnims[RegisterName] = self.Animator:LoadAnimation(Animation);
 		cachedAnims[RegisterName]:Play();
 		cachedAnims[RegisterName]:Stop();
-		
+
 		game:GetService("ContentProvider"):PreloadAsync({Animation})
 	else
 		return false
 	end
-	
+
 	return true
 end
 
-function AnimsTree:Play(AnimationName: string, PlayInfo) : ()
+function AnimsTree:Play(AnimationName: string, PlayInfo: {fadeTime: number, weight: number, speed: number}) : ()
 	if (self.Animator) then
 		if (cachedAnims[AnimationName]) then
 			cachedAnims[AnimationName]:Play(PlayInfo.fadeTime or 0.100000001, PlayInfo.weight or 1, PlayInfo.speed or 1);
 		else
-			warn(`[{script.Name}]: Could not find cached animation {AnimationName}.`)
+			warn(`[{script.Name}]: Could not find cached animation: {AnimationName}.`)
 			return false
 		end
 	else
 		self:Destroy();
 		return false
 	end
-	
+
 	return true
 end
 
@@ -87,17 +93,24 @@ function AnimsTree:Stop(AnimationName: string) : ()
 		self:Destroy();
 		return false
 	end
-	
+
 	return true
 end
 
 function AnimsTree:Destroy()
+	self.Init = false
 	table.clear(cachedAnims);
 	
+	for _, Connection: RBXScriptConnection in pairs(self.Connections) do
+		if (Connection) and (Connection.Connected) then
+			Connection:Disconnect();
+		end
+	end
+
 	for key in pairs(self) do
 		self[key] = nil
 	end
-	
+
 	print(`Cleaned animations tree.`)
 	return true
 end 
