@@ -24,7 +24,7 @@ AnimsTree.__index = AnimsTree
 
 function AnimsTree.new(Humanoid: Humanoid) : ()
 	if (not Humanoid) or (not Humanoid:IsA("Humanoid")) or (not Humanoid.Parent) then
-		warn(`[{script.Name}]: Humanoid paramter was invalid.`)
+		warn(`[{script.Name}]: Humanoid parameter was invalid.`)
 		return false
 	end
 
