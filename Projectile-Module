@@ -89,7 +89,7 @@ function Projectiles.new(ProjectileName: string) : ()
 
 	self._lifetime = 10 :: number
 	
-	if (typeof(self.Projectile) == "BasePart") then
+	if (typeof(self.Projectile) == "Instance") then
 		self.Projectile.Name = ProjectileName .. "_" .. getRandomHash(8)
 	end
 	
